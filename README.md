@@ -16,7 +16,21 @@ Build Plan doesn't trust agent judgment calls, and neither should you:
 
 - Every risky step hits a **harness gate**. If a step needs approval, the approval MUST come from you. The agent cannot approve itself. That's enforced by the harness, not the agent's good intentions.
 - **Verification with receipts.** Every step carries verification requirements, and completed work gets stamped with content hashes. Proof, not vibes.
-- **A ticker that never sleeps.** An automated watchdog keeps the plan moving forward, one right step at a time. If an agent dies, stalls, or just sulks, the process resumes and forces the step through, with a clean sub-agent if needed.
+- **A build that picks up where it left off.** The whole plan runs under Lobster with managed Task Flow. If the gateway restarts mid-build, the stalled flow is visible via `openclaw tasks flow list`. Recovery is one re-run: content-hashed markers skip every stage that already passed. You're back at the problem in seconds, not redoing the whole thing.
+
+## The full journey: idea to shipped build
+
+Here's how it plays out from the moment you have an idea to the moment you verify it shipped:
+
+1. **Talk it out.** You tell your agent about your idea. Back and forth until the picture is clear. When it feels complete, ask: *"Do you have enough info to build a full implementation plan? If not, ask me anything you need."*
+2. **Agent drafts the plan.** Your agent writes a complete implementation plan — numbered stages, actions, verify steps, side-effect flags. Human-readable prose. You can read it, tweak it, argue about it.
+3. **You review.** Read the plan, make changes, send it back for revisions. You're the decider, not the rubber stamp.
+4. **Lock it in.** Tell your agent: *"Convert this to a buildplan."* That triggers this skill.
+5. **Agent normalizes.** The skill reads your prose plan, converts each stage into a Lobster workflow template, flags side-effect stages for approval gates, and shows you a report — stage count, gate count, manual verifies.
+6. **You approve or adjust.** The plan is ready. Give the go.
+7. **Lobster runs it.** Stages execute in order. Every risky step pauses at a gate. You get the preview, you say yes or no. If something fails, the workflow stops and you see exactly what broke.
+8. **Recovery is cheap.** Fix the blocker. Re-run. Markers skip every stage that already passed. The only thing you repeat is the fix.
+9. **Audit the result (optional).** Spawn an audit subagent to run `audit-plan.py` on the plan file. It checks every stage's marker independently. No overlap with the build agent.
 
 ## Once installed, the flow
 
@@ -24,13 +38,13 @@ Once it's installed, here's the whole dance:
 
 1. Tell your agent about your new awesome idea.
 2. Tell it to run a build plan for the implementation.
-3. The agent breaks the full strategy into individual tasks.
-4. Each task gets a definition of success: what done looks like, and how to prove it.
+3. The agent decomposes the full strategy into numbered stages with verifiable success criteria.
+4. Every stage has a clear action, a verify check, and a side-effect flag for gating.
 5. Every step is gated by the harness itself. Need approval? That's your call, and only yours. The agent can't self-approve. Enforced, not asked nicely.
-6. A timer keeps the process marching forward. Agent dies? Stops? Refuses? The timer resumes and forces the step through, spinning up a clean sub-agent if necessary.
+6. If the process stops — a failed stage, a gateway restart — you fix the blocker and re-run. Content-hashed markers skip every stage that already passed. You don't repeat success.
 7. You review and approve the whole plan before any work starts.
 8. You go to bed.
-9. You wake up to a clean, verified, tested, fully complete plan. Every step carries its completion hash for full auditability.
+9. You wake up to a finished build — or, if something broke, a clear failure report showing exactly what failed and where. Fix and re-run in seconds. Every completed stage carries a content-hashed marker for full auditability.
 10. You smile, thank your agent, and go pet a puppy.
 
 ## Installation (agent instructions)
@@ -106,6 +120,30 @@ The agent will:
 | `examples/smoke-test.md` | 3-stage test plan |
 | `examples/gate-test.lobster` | Lobster workflow with approval gate |
 | `examples/fail-test.lobster` | Lobster workflow with failure propagation |
+| `scripts/audit-plan.py` | Post-build audit: checks every stage's marker exists with the correct hash. Run by any agent, zero Lobster dependency |
+
+## Audit (optional, after a build)
+
+A completed buildplan leaves a trail: one marker file per stage at `.buildplan-run/<plan-name>/stage-N.<hash>.ok`. Any agent — not just the one that ran the build — can inspect this trail.
+
+Run the audit from an ephemeral subagent:
+
+```bash
+python3 <skill-dir>/scripts/audit-plan.py <plan.md>
+```
+
+**Sample output:**
+```
+Auditing 2 stages for test-plan.md...
+
+  Stage 1: PASS
+  Stage 2: PASS
+
+2/2 stages verified
+All stages complete and verified.
+```
+
+The audit script needs no Lobster, no workflow, no token. It reads the plan, computes hashes, checks markers, exits 0 only if every stage passes. A failed audit can alert the owner without involving the build agent at all.
 
 ## Limits
 
