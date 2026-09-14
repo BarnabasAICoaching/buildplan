@@ -24,8 +24,8 @@ When Lobster hits a step with `approval: required`, it doesn't ask the agent nic
 {
   "status": "needs_approval",
   "requiresApproval": {
-    "approvalId": "9d9531c0",
-    "prompt": "Approve stage-1?"
+    "approvalId": "a1b2c3d4",
+    "prompt": "Approve: git push to main?"
   }
 }
 ```
