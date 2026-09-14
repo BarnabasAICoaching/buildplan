@@ -35,7 +35,7 @@ Convert a prose build plan (markdown) into a `.lobster` workflow:
 
 Execute the normalized workflow:
 
-1. **Pre-flight**: verify the `lobster` tool is available in the tools catalog.
+1. **Pre-flight**: verify the `lobster` tool is available in the tools catalog. If it is missing, the @openclaw/lobster plugin is not installed: run `openclaw plugins install @openclaw/lobster`, add `"lobster"` to the agent's `tools.alsoAllow`, restart the gateway, and re-check. If the tool still isn't available, stop and tell the owner.
 
 2. **Show the normalize report** from the previous step. HARD STOP for the owner's go.
 
