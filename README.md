@@ -1,115 +1,78 @@
 # Buildplan
 
-A Lobster-powered multi-stage build plan executor for OpenClaw gateways.
+Lobster-powered multi-stage build plans for OpenClaw. Write prose, get verified results. Every risky step pauses for your explicit approval, enforced by the gateway itself.
 
-## What it does
+```markdown
+### Stage 1 — Build the site
+Action: npm run build
+Verify: test -d dist
+Side effect: false
 
-The buildplan system converts prose build plans (markdown with action/verify per stage) into YAML `.lobster` workflows that execute stages in order and pause at approval gates for side effects. Approval gates are enforced by the Lobster runtime, not by the agent, so the workflow pauses at each gate and waits for explicit owner approval before proceeding. Idempotency is achieved through content-hashed marker files that skip completed stages on re-run.
+### Stage 3 — Deploy to production
+Action: rsync -avz dist/ server:/var/www/
+Verify: curl -sS https://example.com | grep -q "Hello"
+Side effect: true     # ← pauses for your approval
+```
 
-## What it does not do
+## Why
 
-- Stages are fixed shell commands, not per-stage LLM agent calls.
-- A retry is a full workflow re-run. Markers make it cheap by skipping completed stages.
-- No real-time watchdog. Use managed flow records (`flowControllerId` + `flowGoal`) and schedule a manual audit for stall detection.
+Agent-driven builds have three problems: the agent does everything in one shot, risky steps happen inside its judgment call, and a crash restarts from zero. Buildplan fixes all three with one small toolchain.
+
+## How it works
+
+1. Your agent writes a prose plan with numbered stages.
+2. The **normalize** step converts it to a Lobster YAML workflow, flagging side-effect stages for approval gates.
+3. You review the stage report and say go.
+4. The **kickoff** step runs the workflow. Stages execute in order.
+5. Every side-effect stage hits an `approval: required` gate — the Lobster runtime returns `needs_approval` outside the agent's execution context. The agent cannot silently skip it.
+6. Passed stages leave content-hashed markers next to the plan file. A re-run skips what already passed. Edit a stage and its hash changes, so it re-runs automatically.
 
 ## Install
 
-1. `openclaw plugins install @openclaw/lobster` and restart the gateway.
-2. Add `"lobster"` to `tools.alsoAllow` in the agent config.
-3. `openclaw skills install @<owner>/buildplan` (with `<owner>` as placeholder).
-4. Verify installation with the checklist below.
-
-## Plan file format
-
-Each plan is a markdown file with stages defined as:
-
-```markdown
-### Stage N — Title
-Action: `bash command here`
-Verify: `verification command here`
-Side effect: true
+```bash
+openclaw plugins install @openclaw/lobster
+openclaw skills install @AWILLTOLLC/buildplan
 ```
 
-- `### Stage N — Title`: stage number and title (N is 1-based).
-- `Action:`: the command to execute. Use `(none)` if no action.
-- `Verify:`: the verification command. Use `(none)` if no verify.
-- `Side effect: true`: marks this stage as a side-effect gate requiring approval.
-- `Manual verify: true`: adds a manual approval gate with a comment preview.
+Add `"lobster"` to your agent config's `tools.alsoAllow` and restart the gateway.
 
-### Example plan
+## Quick start
 
-```markdown
-### Stage 1 — Create directory
-Action: `mkdir -p /tmp/build-output`
-Verify: `test -d /tmp/build-output`
+```bash
+cd /tmp
+cat > deploy.md << 'EOF'
+### Stage 1 — Write a test file
+Action: echo "hello" > /tmp/buildplan-test.txt
+Verify: test -f /tmp/buildplan-test.txt && grep -q hello /tmp/buildplan-test.txt
 Side effect: false
 
-### Stage 2 — Write artifact
-Action: `echo "v1.0" > /tmp/build-output/artifact.txt`
-Verify: `cat /tmp/build-output/artifact.txt | grep -q "v1.0"`
-Side effect: false
-
-### Stage 3 — Deploy
-Action: `rsync -avz /tmp/build-output/ deploy@server:/opt/app/`
-Verify: `ssh deploy@server "test -f /opt/app/artifact.txt"`
+### Stage 2 — Clean up
+Action: rm /tmp/buildplan-test.txt
+Verify: test ! -f /tmp/buildplan-test.txt
 Side effect: true
+EOF
+python3 <skill-dir>/scripts/execute-build-stage.py deploy.md 1
+python3 <skill-dir>/scripts/execute-build-stage.py deploy.md 1  # SKIPs
 ```
 
-## Approval gate rules
+## Files
 
-- **Approvals are per-instance.** Every gate pauses independently. Denying one gate does not skip or auto-approve the others.
-- **The plan document names the actions each stage will perform.** It does not pre-authorize anything. Each gate is a fresh decision.
+| Path | Purpose |
+|------|---------|
+| `SKILL.md` | Agent-facing skill instructions (normalize + kickoff) |
+| `scripts/execute-build-stage.py` | Stage executor with content-hashed marker idempotency |
+| `templates/build-runner.lobster` | YAML workflow template |
+| `examples/smoke-test.md` | 3-stage test plan |
+| `examples/gate-test.lobster` | Lobster workflow with approval gate |
+| `examples/fail-test.lobster` | Lobster workflow with failure propagation |
 
-## Known Lobster runner limits
+## Limits
 
-- `cwd` is lost on resume: every plan action must use absolute paths. The normalize step resolves the skill dir and bakes absolute paths into the generated `.lobster` so this is handled automatically.
-- `$step.exit_code` conditions are unsupported. Not needed for linear plans: a failing step stops the workflow.
-- Colons in quoted YAML values cause a parser error. Avoid colons in echo strings inside workflow YAML.
-- `timeoutMs` and `maxStdoutBytes` must be set per build in the kickoff call. The defaults (20 seconds, small buffer) will break long-running builds.
+- Stages are shell commands, not per-stage LLM calls.
+- Lobster `cwd` is lost on resume — every plan action must use absolute paths. The normalize step handles this.
+- `$step.exit_code` conditions are unsupported. Not needed: a failing step stops the workflow.
+- No real-time watchdog. Use managed flow records (`flowControllerId` + `flowGoal`) and schedule a manual audit.
 
-## Verification checklist
+## License
 
-Run these after installing. Substitute `<skill-dir>` with the path where the skill was installed.
-
-1. **Executor smoke test**: Run stage 1 twice from the smoke-test plan.
-   ```
-   python3 <skill-dir>/scripts/execute-build-stage.py <skill-dir>/examples/smoke-test.md 1
-   python3 <skill-dir>/scripts/execute-build-stage.py <skill-dir>/examples/smoke-test.md 1
-   ```
-   Expected: `PASS: stage 1` then `SKIP: stage 1 (already passed)`.
-
-2. **Cwd-independent idempotency**: Run the same stage from a different directory.
-   ```
-   cd /tmp && python3 <skill-dir>/scripts/execute-build-stage.py <skill-dir>/examples/smoke-test.md 2
-   ```
-   Expected: `SKIP: stage 2 (already passed)`.
-
-3. **Content hash invalidation**: Change the action and run again.
-   ```
-   echo '### Stage 1 -- Write test file
-Action: echo "changed" > /tmp/buildplan-smoke-test.txt
-Verify: cat /tmp/buildplan-smoke-test.txt | grep -q "changed"
-Side effect: false' > /tmp/test-change.md
-   python3 <skill-dir>/scripts/execute-build-stage.py /tmp/test-change.md 1
-   ```
-   Expected: `PASS: stage 1` (new hash, old marker did not match).
-
-4. **Full workflow**: Run a 2-step test workflow through lobster.
-   ```
-   lobster action=run pipeline=<skill-dir>/examples/gate-test.lobster timeoutMs=30000
-   ```
-   Expected: `status: ok` (the gate remains closed but the example passes without approval).
-
-5. **Approval gate**: Run the same workflow, confirm it pauses:
-   ```
-   lobster action=run pipeline=<skill-dir>/examples/gate-test.lobster timeoutMs=30000
-   ```
-   Expected: returns `status: needs_approval` with `approvalId` and `resumeToken`. Resume with `approve: true` to see the gate run.
-
-6. **Failure propagation**: Run the fail-test workflow:
-   ```
-   lobster action=run pipeline=<skill-dir>/examples/fail-test.lobster timeoutMs=30000
-   ```
-   Expected: `status: error` immediately, step 2 never runs.
-
-Static security scan: [PASS] — no download+exec, no network calls, no obfuscation.
+MIT
