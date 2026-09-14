@@ -16,6 +16,24 @@ An agent takes a human readable implementation plan and breaks it down into stru
   - If the task is risky, the harness itself enforces the approval from you. The agent can't fake it. Enforced, not asked.
   - When done, verify the task was completed successfully. If so, mark it complete with a specific hash unique to that command, then continue to the next task.
 
+### What a gate looks like
+
+When Lobster hits a step with `approval: required`, it doesn't ask the agent nicely. It returns this to the gateway:
+
+```json
+{
+  "status": "needs_approval",
+  "requiresApproval": {
+    "approvalId": "9d9531c0",
+    "prompt": "Approve stage-1?"
+  }
+}
+```
+
+The agent can't generate this response. It arrives from the Lobster runtime, through the gateway, as a tool result. The agent wasn't asked to decide — it was told to present. The resume call requires the exact `approvalId` and `approve: true` from the same Lobster response. No approvalId, no resume.
+
+That's what "enforced, not asked" means. Your agent shows you the prompt. You say yes or no. If you say yes, the workflow resumes at exactly that step — the gate was the pause, not the work. If you say no, the workflow stops. Either way, the agent didn't decide.
+
 When something goes sideways you know the exact step it failed and why. So does your agent. Address the failure that occurred (by you or your agent), and resume the build exactly where it left off.
 
 **This does several things:**
