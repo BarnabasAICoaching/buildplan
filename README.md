@@ -4,17 +4,34 @@ Lobster-powered multi-stage build plans for OpenClaw. Write a prose plan, get ve
 
 ## The old way
 
-You have an idea, you tell your agent to build a plan. You spend an hour tweaking markdown, telling it how to run, then go to bed. The agent dies 15 minutes in on an error and sits waiting till morning. You wake up to nothing. Or worse, it built something different and pushed to main without approval.
+You have an idea. You tell your agent all about it, and tell it to build a plan. You spend an hour reading and tweaking the plan's markdown. You tell it to run, and head to bed, dreaming of shipped features.
+
+The agent runs for a few steps, hits an error 15 minutes in, and sits there waiting for you like a dog by an empty food bowl. You wake up expecting something to review and find almost nothing happened.
+
+Or worse: it built something vastly different and published it to main without asking. Surprise!
 
 ## The right way: Build Plan with harness gates
 
-- Not agent judgment calls. Every risky step hits a gate.
-- Verification requirements for every step with hashes of completed work.
-- Automated ticker keeps it always moving forward one right step at a time.
+Build Plan doesn't trust agent judgment calls, and neither should you:
+
+- Every risky step hits a **harness gate**. If a step needs approval, the approval MUST come from you. The agent cannot approve itself. That's enforced by the harness, not the agent's good intentions.
+- **Verification with receipts.** Every step carries verification requirements, and completed work gets stamped with content hashes. Proof, not vibes.
+- **A ticker that never sleeps.** An automated watchdog keeps the plan moving forward, one right step at a time. If an agent dies, stalls, or just sulks, the process resumes and forces the step through, with a clean sub-agent if needed.
 
 ## Once installed, the flow
 
-Tell your agent your idea. Tell it to run a build plan. Agent breaks implementation into individual tasks. Each task gets a definition of success. Every step is gated by the harness itself. If a step needs approval, the approval MUST come from the user. The agent cannot approve directly (enforced by the harness, not the agent). A timer keeps the process moving. If an agent dies, stops, or refuses, the timer resumes and forces the step through with a clean sub-agent if necessary. You review and approve the whole plan before work starts. You go to bed. You wake to a clean, verified, tested, fully complete plan with per-task completion hashes for full auditability.
+Once it's installed, here's the whole dance:
+
+1. Tell your agent about your new awesome idea.
+2. Tell it to run a build plan for the implementation.
+3. The agent breaks the full strategy into individual tasks.
+4. Each task gets a definition of success: what done looks like, and how to prove it.
+5. Every step is gated by the harness itself. Need approval? That's your call, and only yours. The agent can't self-approve. Enforced, not asked nicely.
+6. A timer keeps the process marching forward. Agent dies? Stops? Refuses? The timer resumes and forces the step through, spinning up a clean sub-agent if necessary.
+7. You review and approve the whole plan before any work starts.
+8. You go to bed.
+9. You wake up to a clean, verified, tested, fully complete plan. Every step carries its completion hash for full auditability.
+10. You smile, thank your agent, and go pet a puppy.
 
 ## Installation (agent instructions)
 
