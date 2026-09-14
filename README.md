@@ -18,12 +18,12 @@ Tell your agent your idea. Tell it to run a build plan. Agent breaks implementat
 
 ## Installation (agent instructions)
 
-Paste this entire README URL to your agent and it will wire it up: https://github.com/AWILLTOLLC/buildplan
+Paste this entire README URL to your agent and it will wire it up: https://github.com/BarnabasAICoaching/buildplan
 
 **Step 1: Install the skill**
 
 ```bash
-openclaw skills install @AWILLTOLLC/buildplan
+openclaw skills install @BarnabasAICoaching/buildplan
 ```
 
 **Step 2: Verify the lobster tool**
