@@ -20,7 +20,24 @@ with open(plan_path) as f:
 # Parse stages
 stages = []
 current = {}
-for line in content.split('\n'):
+lines = content.split('\n')
+
+def _collect_multiline(all_lines, start_idx, stage, field):
+    """Collect continuation lines after an Action:/Verify: header until the
+    next field (Action:/Verify:/### Stage) or a blank-line boundary at stage end.
+    Continuations are lines that follow immediately and are not headers."""
+    buf = []
+    for j in range(start_idx + 1, len(all_lines)):
+        l = all_lines[j]
+        # Stop at any field header (Word:), stage header, or blank line
+        # multiline bash content rarely starts with a word-colon pattern
+        if re.match(r'^[\w ][\w -]*:', l) or l.startswith('### Stage ') or l.strip() == '':
+            break
+        buf.append(l)
+    if buf:
+        stage[field] = (stage[field] + '\n' + '\n'.join(buf)).strip()
+
+for idx, line in enumerate(lines):
     if line.startswith('### Stage '):
         if current:
             stages.append(current)
@@ -28,8 +45,12 @@ for line in content.split('\n'):
         current = {'id': int(m.group(1)), 'title': m.group(2), 'action': '', 'verify': ''}
     elif line.startswith('Action:'):
         current['action'] = line.split(':', 1)[1].strip()
-    elif line.startswith('Verify:'):
+        # Collect multiline action until next field or stage header
+        _collect_multiline(lines, idx, current, 'action')
+    elif line.startswith('Verify:') or line.startswith('Manual verify:'):
         current['verify'] = line.split(':', 1)[1].strip()
+        # Collect multiline verify until next field or stage header
+        _collect_multiline(lines, idx, current, 'verify')
 
 if current:
     stages.append(current)
