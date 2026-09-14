@@ -34,6 +34,12 @@ The agent can't generate this response. It arrives from the Lobster runtime, thr
 
 That's what "enforced, not asked" means. Your agent shows you the prompt. You say yes or no. If you say yes, the workflow resumes at exactly that step — the gate was the pause, not the work. If you say no, the workflow stops. Either way, the agent didn't decide.
 
+On your end, it looks like this in the OpenClaw UI:
+
+![Approval gate dialog in OpenClaw](assets/approval-gate.png)
+
+The gate arrives as an interactive prompt. The agent presents it. You pick. The gateway enforces the response.
+
 When something goes sideways you know the exact step it failed and why. So does your agent. Address the failure that occurred (by you or your agent), and resume the build exactly where it left off.
 
 **This does several things:**
