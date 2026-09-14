@@ -1,40 +1,27 @@
 name: build-runner
+description: Execute a prose build plan via Lobster with managed Task Flow
+args:
+  plan_path:
+    type: string
+    description: Absolute path to the prose build plan markdown file
 steps:
-  stage-1:
-    cmd: |
-      python3 __SKILL_DIR__/scripts/execute-build-stage.py {{plan_path}} 1
-    description: Execute stage 1 from build plan
-    sideEffect: true
+  - id: stage-1
+    command: python3 __SKILL_DIR__/scripts/execute-build-stage.py "${args.plan_path}" 1
 
-  stage-1-preview:
-    cmd: echo "Stage 1 preview: {{action_stage_1}}"
-    description: Preview action for stage 1
-    condition: $step.stage-1.approved
+  - id: stage-2
+    command: python3 __SKILL_DIR__/scripts/execute-build-stage.py "${args.plan_path}" 2
 
-  stage-2:
-    cmd: |
-      python3 __SKILL_DIR__/scripts/execute-build-stage.py {{plan_path}} 2
-    description: Execute stage 2 from build plan
-    sideEffect: true
+  - id: preview-3
+    command: echo "Side effect stage: see plan for action details"
+
+  - id: stage-3
+    command: python3 __SKILL_DIR__/scripts/execute-build-stage.py "${args.plan_path}" 3
     approval: required
 
-  stage-2-preview:
-    cmd: echo "Stage 2 preview: {{action_stage_2}}"
-    description: Preview action for stage 2
-    condition: $step.stage-2.approved
+  - id: stage-4
+    command: python3 __SKILL_DIR__/scripts/execute-build-stage.py "${args.plan_path}" 4
+    condition: $stage-3.approved
 
-  stage-N:
-    cmd: |
-      python3 __SKILL_DIR__/scripts/execute-build-stage.py {{plan_path}} N
-    description: Execute final stage N from build plan
-    sideEffect: true
-    approval: required
-
-  post-gate:
-    cmd: echo "All side-effect gates passed"
-    description: Post-gate verification
-    condition: $step.stage-N.approved
-
-  complete:
-    cmd: echo "Build plan completed successfully"
-    condition: $step.post-gate.approved
+  - id: complete
+    command: echo "Build complete: all stages passed."
+    condition: $stage-3.approved

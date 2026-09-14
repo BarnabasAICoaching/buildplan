@@ -69,48 +69,47 @@ Side effect: true
 
 ## Verification checklist
 
-Run these after installing to verify the skill works:
+Run these after installing. Substitute `<skill-dir>` with the path where the skill was installed.
 
-1. **Executor smoke test**: Run two stages from the smoke-test plan.
+1. **Executor smoke test**: Run stage 1 twice from the smoke-test plan.
    ```
-   cd /Users/apollo/.openclaw/workspace/buildplan
-   python3 scripts/execute-build-stage.py examples/smoke-test.md 1
-   python3 scripts/execute-build-stage.py examples/smoke-test.md 1
+   python3 <skill-dir>/scripts/execute-build-stage.py <skill-dir>/examples/smoke-test.md 1
+   python3 <skill-dir>/scripts/execute-build-stage.py <skill-dir>/examples/smoke-test.md 1
    ```
-   Expected output: `PASS: stage 1` then `SKIP: stage 1 (already passed)`.
+   Expected: `PASS: stage 1` then `SKIP: stage 1 (already passed)`.
 
-2. **Cwd-independent idempotency**: Run the same executor from a different directory.
+2. **Cwd-independent idempotency**: Run the same stage from a different directory.
    ```
-   cd /tmp && python3 /Users/apollo/.openclaw/workspace/buildplan/scripts/execute-build-stage.py /Users/apollo/.openclaw/workspace/buildplan/examples/smoke-test.md 2
+   cd /tmp && python3 <skill-dir>/scripts/execute-build-stage.py <skill-dir>/examples/smoke-test.md 2
    ```
-   Expected output: `SKIP: stage 2 (already passed)`.
+   Expected: `SKIP: stage 2 (already passed)`.
 
-3. **Content hash invalidation**: Change the action and re-run.
+3. **Content hash invalidation**: Change the action and run again.
    ```
-   echo '### Stage 1 — Write test file
+   echo '### Stage 1 -- Write test file
 Action: echo "changed" > /tmp/buildplan-smoke-test.txt
 Verify: cat /tmp/buildplan-smoke-test.txt | grep -q "changed"
 Side effect: false' > /tmp/test-change.md
-   python3 /Users/apollo/.openclaw/workspace/buildplan/scripts/execute-build-stage.py /tmp/test-change.md 1
+   python3 <skill-dir>/scripts/execute-build-stage.py /tmp/test-change.md 1
    ```
-   Expected output: `PASS: stage 1` (new hash).
+   Expected: `PASS: stage 1` (new hash, old marker did not match).
 
 4. **Full workflow**: Run a 2-step test workflow through lobster.
    ```
-   lobster action=run pipeline=/Users/apollo/.openclaw/workspace/buildplan/examples/test-workflow.lobster timeoutMs=3600000 maxStdoutBytes=2048000 flowControllerId=buildplan flowGoal="Test build"
+   lobster action=run pipeline=<skill-dir>/examples/gate-test.lobster timeoutMs=30000
    ```
-   Expected output: `status: ok`.
+   Expected: `status: ok` (the gate remains closed but the example passes without approval).
 
-5. **Approval gate**: Create a workflow with `approval: required`, verify it returns `needs_approval`.
+5. **Approval gate**: Run the same workflow, confirm it pauses:
    ```
-   lobster action=run pipeline=/Users/apollo/.openclaw/workspace/buildplan/examples/gate-test.lobster timeoutMs=3600000 maxStdoutBytes=2048000 flowControllerId=buildplan flowGoal="Gate test"
+   lobster action=run pipeline=<skill-dir>/examples/gate-test.lobster timeoutMs=30000
    ```
-   Expected output: `status: needs_approval`.
+   Expected: returns `status: needs_approval` with `approvalId` and `resumeToken`. Resume with `approve: true` to see the gate run.
 
-6. **Failure propagation**: Create a workflow with a failing step, verify it stops.
+6. **Failure propagation**: Run the fail-test workflow:
    ```
-   lobster action=run pipeline=/Users/apollo/.openclaw/workspace/buildplan/examples/fail-test.lobster timeoutMs=3600000 maxStdoutBytes=2048000 flowControllerId=buildplan flowGoal="Fail test"
+   lobster action=run pipeline=<skill-dir>/examples/fail-test.lobster timeoutMs=30000
    ```
-   Expected output: `status: error`.
+   Expected: `status: error` immediately, step 2 never runs.
 
 Static security scan: [PASS] — no download+exec, no network calls, no obfuscation.
